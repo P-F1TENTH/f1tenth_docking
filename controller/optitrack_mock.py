@@ -1,5 +1,3 @@
-import time
-
 import rclpy
 from geometry_msgs.msg import Point, PoseStamped, Quaternion
 from rclpy.node import Node
