@@ -10,7 +10,7 @@ setup(
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
     ],
-    install_requires=["setuptools", "do_mpc", "numpy"],
+    install_requires=["setuptools"],
     zip_safe=True,
     maintainer="root",
     maintainer_email="root@todo.todo",
@@ -18,8 +18,8 @@ setup(
     license="TODO: License declaration",
     entry_points={
         "console_scripts": [
-            "controller = controller.controller:main",
-            "mock_optitrack = controller.optitrack_mock:main",
+            "controller = f1tenth_docking.controller:main",
+            "optitrack_mock = f1tenth_docking.optitrack_mock:main",
         ],
     },
 )
