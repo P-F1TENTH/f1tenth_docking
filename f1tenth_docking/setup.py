@@ -18,8 +18,7 @@ setup(
     license="TODO: License declaration",
     entry_points={
         "console_scripts": [
-            "controller = f1tenth_docking.controller:main",
-            "optitrack_mock = f1tenth_docking.optitrack_mock:main",
+            "docking_node = f1tenth_docking.docking_node:main",
         ],
     },
 )

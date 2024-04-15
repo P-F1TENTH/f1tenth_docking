@@ -12,6 +12,7 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>python-transforms3d-pip</exec_depend>
   <exec_depend>tf_transformations</exec_depend>
+  <exec_depend>f1tenth_docking_interfaces</exec_depend>
   <!-- <exec_depend>python3-do-mpc-pip</exec_depend> -->
 
   <export>
