@@ -1,0 +1,14 @@
+/**:
+  ros__parameters:
+    L: 30.0
+    t_step: 0.15
+    n_robust: 1
+    n_horizon: 20
+    solver_max_iter: 5
+    env_size:
+      width: 1200.0
+      height: 800.0
+    gains:
+      pos: 22.0
+      theta: 1.0
+      delta: 0.5

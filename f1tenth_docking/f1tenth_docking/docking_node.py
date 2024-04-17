@@ -54,22 +54,22 @@ class BicycleMPC(do_mpc.controller.MPC):
 
     def __init__(
         self,
-        gains: dict,
         model: do_mpc.model.Model,
-        n_horizon: int,
         t_step: float,
-        solver_max_iter: int,
         n_robust: int,
+        n_horizon: int,
+        solver_max_iter: int,
         env_size: dict,
+        gains: dict,
     ) -> None:
 
-        self.gains = gains
         self.model = model
-        self.n_horizon = n_horizon
         self.t_step = t_step
-        self.solver_max_iter = solver_max_iter
         self.n_robust = n_robust
+        self.n_horizon = n_horizon
+        self.solver_max_iter = solver_max_iter
         self.env_size = env_size
+        self.gains = gains
 
         super().__init__(self.model)
 
@@ -153,30 +153,41 @@ class BicycleMPC(do_mpc.controller.MPC):
 class DockingNode(Node):
     """Node for controling the docking procedure of the F1/10th car"""
 
-    # Move to a config file (YAML)
-    L = 30
-
-    T_STEP = 0.15
-    N_ROBUST = 1
-    N_HORIZON = 20
-    SOLVER_MAX_ITER = 5 # works fine in sim
-
-    ENV_SIZE = {
-        "width": 1200,
-        "height": 800,
-    }
-
-    GAINS = {
-        "pos": 22,
-        "theta": 1,
-        "delta": 0.5,
-    }
-
-    # below stay untouched
     NODE_NAME = "docking_node"
 
     def __init__(self):
         super().__init__(self.NODE_NAME)
+
+        self.declare_parameters(
+            namespace="",
+            parameters=[
+                ("L", rclpy.Parameter.Type.DOUBLE),
+                ("t_step", rclpy.Parameter.Type.DOUBLE),
+                ("n_robust", rclpy.Parameter.Type.INTEGER),
+                ("n_horizon", rclpy.Parameter.Type.INTEGER),
+                ("solver_max_iter", rclpy.Parameter.Type.INTEGER),
+                ("env_size.width", rclpy.Parameter.Type.DOUBLE),
+                ("env_size.height", rclpy.Parameter.Type.DOUBLE),
+                ("gains.pos", rclpy.Parameter.Type.DOUBLE),
+                ("gains.theta", rclpy.Parameter.Type.DOUBLE),
+                ("gains.delta", rclpy.Parameter.Type.DOUBLE),
+            ],
+        )
+
+        self.L = self.get_parameter("L").value
+        self.t_step = self.get_parameter("t_step").value
+        self.n_robust = self.get_parameter("n_robust").value
+        self.n_horizon = self.get_parameter("n_horizon").value
+        self.solver_max_iter = self.get_parameter("solver_max_iter").value
+        self.env_size = {
+            "width": self.get_parameter("env_size.width").value,
+            "height": self.get_parameter("env_size.height").value,
+        }
+        self.gains = {
+            "pos": self.get_parameter("gains.pos").value,
+            "theta": self.get_parameter("gains.theta").value,
+            "delta": self.get_parameter("gains.delta").value,
+        }
 
         self.setpoint = None
         self.vesc_state_stamped = None
@@ -185,16 +196,16 @@ class DockingNode(Node):
 
         self.bicycle_model = BicycleModel(self.L)
         self.mpc = BicycleMPC(
-            gains=self.GAINS,
             model=self.bicycle_model,
-            n_horizon=self.N_HORIZON,
-            t_step=self.T_STEP,
-            solver_max_iter=self.SOLVER_MAX_ITER,
-            n_robust=self.N_ROBUST,
-            env_size=self.ENV_SIZE,
+            t_step=self.t_step,
+            n_robust=self.n_robust,
+            n_horizon=self.n_horizon,
+            solver_max_iter=self.solver_max_iter,
+            env_size=self.env_size,
+            gains=self.gains,
         )
 
-        self.mpc_timer = self.create_timer(self.T_STEP, self.mpc_timer_callback)
+        self.mpc_timer = self.create_timer(self.t_step, self.mpc_timer_callback)
 
         self.control_output_publisher = self.create_publisher(
             DockingControlOutput,
@@ -262,9 +273,9 @@ class DockingNode(Node):
 
             end_time = time.time()
             execution_time = end_time - start_time
-            if execution_time > self.T_STEP:
+            if execution_time > self.t_step:
                 self.get_logger().error(
-                    f"Execution time exceeded time step: {execution_time} > {self.T_STEP}"
+                    f"Execution time exceeded time step: {execution_time} > {self.t_step}"
                 )
 
     def pose_callback(self, msg: PoseStamped) -> None:
