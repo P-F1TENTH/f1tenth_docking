@@ -1,5 +1,7 @@
 """Node for controlling the docking procedure of the F1/10th car"""
 
+import time
+
 import rclpy
 import do_mpc
 import numpy as np
@@ -56,6 +58,7 @@ class BicycleMPC(do_mpc.controller.MPC):
         model: do_mpc.model.Model,
         n_horizon: int,
         t_step: float,
+        solver_max_iter: int,
         n_robust: int,
         env_size: dict,
     ) -> None:
@@ -64,6 +67,7 @@ class BicycleMPC(do_mpc.controller.MPC):
         self.model = model
         self.n_horizon = n_horizon
         self.t_step = t_step
+        self.solver_max_iter = solver_max_iter
         self.n_robust = n_robust
         self.env_size = env_size
 
@@ -73,8 +77,13 @@ class BicycleMPC(do_mpc.controller.MPC):
             n_horizon=self.n_horizon,
             t_step=self.t_step,
             n_robust=self.n_robust,
-            store_full_solution=True,
-            nlpsol_opts={"ipopt.print_level": 0, "ipopt.sb": "yes", "print_time": 0},
+            store_full_solution=False,
+            nlpsol_opts={
+                "ipopt.max_iter": self.solver_max_iter,
+                "ipopt.print_level": 0,
+                "ipopt.sb": "yes",
+                "print_time": 0,
+            },
         )
 
         self.bounds["lower", "_x", "x_pos"] = 0
@@ -145,9 +154,18 @@ class DockingNode(Node):
     """Node for controling the docking procedure of the F1/10th car"""
 
     # Move to a config file (YAML)
-    T_STEP = 0.1
-    ENV_SIZE = {"width": 1200, "height": 800}
     L = 30
+
+    T_STEP = 0.15
+    N_ROBUST = 1
+    N_HORIZON = 20
+    SOLVER_MAX_ITER = 5 # works fine in sim
+
+    ENV_SIZE = {
+        "width": 1200,
+        "height": 800,
+    }
+
     GAINS = {
         "pos": 22,
         "theta": 1,
@@ -156,8 +174,6 @@ class DockingNode(Node):
 
     # below stay untouched
     NODE_NAME = "docking_node"
-    N_HORIZON = 20
-    N_ROBUST = 1
 
     def __init__(self):
         super().__init__(self.NODE_NAME)
@@ -173,6 +189,7 @@ class DockingNode(Node):
             model=self.bicycle_model,
             n_horizon=self.N_HORIZON,
             t_step=self.T_STEP,
+            solver_max_iter=self.SOLVER_MAX_ITER,
             n_robust=self.N_ROBUST,
             env_size=self.ENV_SIZE,
         )
@@ -209,6 +226,8 @@ class DockingNode(Node):
     def mpc_timer_callback(self) -> None:
         """Main control loop"""
         if None not in (self.pose_stamped, self.vesc_state_stamped, self.setpoint):
+            start_time = time.time()
+
             orientation_list = [
                 self.pose_stamped.pose.orientation.x,
                 self.pose_stamped.pose.orientation.y,
@@ -240,6 +259,13 @@ class DockingNode(Node):
                 self.mpc.set_initial_guess()
                 self.is_initial_guess_set = True
                 self.get_logger().info("Initial guess set")
+
+            end_time = time.time()
+            execution_time = end_time - start_time
+            if execution_time > self.T_STEP:
+                self.get_logger().error(
+                    f"Execution time exceeded time step: {execution_time} > {self.T_STEP}"
+                )
 
     def pose_callback(self, msg: PoseStamped) -> None:
         """Callback for the stamped pose message"""
