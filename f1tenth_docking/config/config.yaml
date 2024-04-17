@@ -5,10 +5,23 @@
     n_robust: 1
     n_horizon: 20
     solver_max_iter: 5
-    env_size:
-      width: 1200.0
-      height: 800.0
     gains:
       pos: 22.0
       theta: 1.0
       delta: 0.5
+    bounds:
+      x_pos:
+        lower: 0.0
+        upper: 1200.0
+      y_pos:
+        lower: 0.0
+        upper: 1200.0
+      delta:
+        lower: -0.785
+        upper: 0.785
+      v:
+        lower: -120.0
+        upper: 120.0
+      phi:
+        lower: -2.0
+        upper: 2.0

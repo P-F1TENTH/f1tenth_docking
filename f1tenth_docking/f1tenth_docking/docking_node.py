@@ -21,8 +21,6 @@ class BicycleModel(do_mpc.model.Model):
     def __init__(self, L: float) -> None:
         super().__init__("continuous")
 
-        self.L = L
-
         self.set_variable(var_type="_x", var_name="x_pos", shape=(1, 1))
         self.set_variable(var_type="_x", var_name="y_pos", shape=(1, 1))
         self.set_variable(var_type="_x", var_name="theta", shape=(1, 1))
@@ -38,7 +36,7 @@ class BicycleModel(do_mpc.model.Model):
 
         d_x_pos = self.u["v"] * ca.cos(self.x["theta"])
         d_y_pos = self.u["v"] * ca.sin(self.x["theta"])
-        d_theta = self.u["v"] * ca.tan(self.x["delta"]) / self.L
+        d_theta = self.u["v"] * ca.tan(self.x["delta"]) / L
         d_delta = self.u["phi"]
 
         self.set_rhs("x_pos", d_x_pos)
@@ -54,83 +52,67 @@ class BicycleMPC(do_mpc.controller.MPC):
 
     def __init__(
         self,
-        model: do_mpc.model.Model,
+        model: BicycleModel,
         t_step: float,
         n_robust: int,
         n_horizon: int,
         solver_max_iter: int,
-        env_size: dict,
         gains: dict,
+        bounds: dict,
     ) -> None:
 
-        self.model = model
-        self.t_step = t_step
-        self.n_robust = n_robust
-        self.n_horizon = n_horizon
-        self.solver_max_iter = solver_max_iter
-        self.env_size = env_size
-        self.gains = gains
-
-        super().__init__(self.model)
+        super().__init__(model)
 
         self.set_param(
-            n_horizon=self.n_horizon,
-            t_step=self.t_step,
-            n_robust=self.n_robust,
+            n_horizon=n_horizon,
+            t_step=t_step,
+            n_robust=n_robust,
             store_full_solution=False,
             nlpsol_opts={
-                "ipopt.max_iter": self.solver_max_iter,
+                "ipopt.max_iter": solver_max_iter,
                 "ipopt.print_level": 0,
                 "ipopt.sb": "yes",
                 "print_time": 0,
             },
         )
 
-        self.bounds["lower", "_x", "x_pos"] = 0
-        self.bounds["upper", "_x", "y_pos"] = self.env_size["width"]
+        self.bounds["lower", "_x", "x_pos"] = bounds["x_pos"]["lower"]
+        self.bounds["upper", "_x", "y_pos"] = bounds["x_pos"]["upper"]
 
-        self.bounds["lower", "_x", "y_pos"] = 0
-        self.bounds["upper", "_x", "y_pos"] = self.env_size["height"]
+        self.bounds["lower", "_x", "y_pos"] = bounds["y_pos"]["lower"]
+        self.bounds["upper", "_x", "y_pos"] = bounds["y_pos"]["upper"]
 
-        self.bounds["lower", "_x", "delta"] = -ca.pi / 4
-        self.bounds["upper", "_x", "delta"] = ca.pi / 4
+        self.bounds["lower", "_x", "delta"] = bounds["delta"]["lower"]
+        self.bounds["upper", "_x", "delta"] = bounds["delta"]["upper"]
 
-        self.bounds["lower", "_u", "v"] = -120
-        self.bounds["upper", "_u", "v"] = 120
+        self.bounds["lower", "_u", "v"] = bounds["v"]["lower"]
+        self.bounds["upper", "_u", "v"] = bounds["v"]["upper"]
 
-        self.bounds["lower", "_u", "phi"] = -2
-        self.bounds["upper", "_u", "phi"] = 2
+        self.bounds["lower", "_u", "phi"] = bounds["phi"]["lower"]
+        self.bounds["upper", "_u", "phi"] = bounds["phi"]["upper"]
 
         norm = lambda x, min, max: (x - min) / (max - min)
         lterm = (
             (
                 norm(
-                    (self.model.x["x_pos"] - self.model.tvp["set_x_pos"]),
-                    0,
-                    self.env_size["width"],
+                    (model.x["x_pos"] - model.tvp["set_x_pos"]),
+                    bounds["x_pos"]["lower"],
+                    bounds["x_pos"]["upper"],
                 )
-                * self.gains["pos"]
+                * gains["pos"]
             )
             ** 2
             + (
                 norm(
-                    (self.model.x["y_pos"] - self.model.tvp["set_y_pos"]),
-                    0,
-                    self.env_size["height"],
+                    (model.x["y_pos"] - model.tvp["set_y_pos"]),
+                    bounds["y_pos"]["lower"],
+                    bounds["y_pos"]["upper"],
                 )
-                * self.gains["pos"]
+                * gains["pos"]
             )
             ** 2
-            + (
-                (self.model.x["theta"] - self.model.tvp["set_theta"])
-                * self.gains["theta"]
-            )
-            ** 2
-            + (
-                (self.model.x["delta"] - self.model.tvp["set_delta"])
-                * self.gains["delta"]
-            )
-            ** 2
+            + ((model.x["theta"] - model.tvp["set_theta"]) * gains["theta"]) ** 2
+            + ((model.x["delta"] - model.tvp["set_delta"]) * gains["delta"]) ** 2
         )
         mterm = lterm
         self.set_objective(mterm=mterm, lterm=lterm)
@@ -144,10 +126,10 @@ class BicycleMPC(do_mpc.controller.MPC):
     ) -> None:
         """Choose setpoint for the MPC controller"""
         tvp_template = self.get_tvp_template()
-        tvp_template["_tvp", 0 : self.n_horizon + 1, "set_x_pos"] = x_pos
-        tvp_template["_tvp", 0 : self.n_horizon + 1, "set_y_pos"] = y_pos
-        tvp_template["_tvp", 0 : self.n_horizon + 1, "set_theta"] = theta
-        tvp_template["_tvp", 0 : self.n_horizon + 1, "set_delta"] = delta
+        tvp_template["_tvp", 0 : self.settings.n_horizon + 1, "set_x_pos"] = x_pos
+        tvp_template["_tvp", 0 : self.settings.n_horizon + 1, "set_y_pos"] = y_pos
+        tvp_template["_tvp", 0 : self.settings.n_horizon + 1, "set_theta"] = theta
+        tvp_template["_tvp", 0 : self.settings.n_horizon + 1, "set_delta"] = delta
 
 
 class DockingNode(Node):
@@ -158,6 +140,11 @@ class DockingNode(Node):
     def __init__(self):
         super().__init__(self.NODE_NAME)
 
+        self.setpoint = None
+        self.pose_stamped = None
+        self.vesc_state_stamped = None
+        self.is_initial_guess_set = False
+
         self.declare_parameters(
             namespace="",
             parameters=[
@@ -166,46 +153,63 @@ class DockingNode(Node):
                 ("n_robust", rclpy.Parameter.Type.INTEGER),
                 ("n_horizon", rclpy.Parameter.Type.INTEGER),
                 ("solver_max_iter", rclpy.Parameter.Type.INTEGER),
-                ("env_size.width", rclpy.Parameter.Type.DOUBLE),
-                ("env_size.height", rclpy.Parameter.Type.DOUBLE),
                 ("gains.pos", rclpy.Parameter.Type.DOUBLE),
                 ("gains.theta", rclpy.Parameter.Type.DOUBLE),
                 ("gains.delta", rclpy.Parameter.Type.DOUBLE),
+                ("bounds.x_pos.lower", rclpy.Parameter.Type.DOUBLE),
+                ("bounds.x_pos.upper", rclpy.Parameter.Type.DOUBLE),
+                ("bounds.y_pos.lower", rclpy.Parameter.Type.DOUBLE),
+                ("bounds.y_pos.upper", rclpy.Parameter.Type.DOUBLE),
+                ("bounds.delta.lower", rclpy.Parameter.Type.DOUBLE),
+                ("bounds.delta.upper", rclpy.Parameter.Type.DOUBLE),
+                ("bounds.v.lower", rclpy.Parameter.Type.DOUBLE),
+                ("bounds.v.upper", rclpy.Parameter.Type.DOUBLE),
+                ("bounds.phi.lower", rclpy.Parameter.Type.DOUBLE),
+                ("bounds.phi.upper", rclpy.Parameter.Type.DOUBLE),
             ],
         )
 
-        self.L = self.get_parameter("L").value
-        self.t_step = self.get_parameter("t_step").value
-        self.n_robust = self.get_parameter("n_robust").value
-        self.n_horizon = self.get_parameter("n_horizon").value
-        self.solver_max_iter = self.get_parameter("solver_max_iter").value
-        self.env_size = {
-            "width": self.get_parameter("env_size.width").value,
-            "height": self.get_parameter("env_size.height").value,
-        }
-        self.gains = {
+        gains = {
             "pos": self.get_parameter("gains.pos").value,
             "theta": self.get_parameter("gains.theta").value,
             "delta": self.get_parameter("gains.delta").value,
         }
+        bounds = {
+            "x_pos": {
+                "lower": self.get_parameter("bounds.x_pos.lower").value,
+                "upper": self.get_parameter("bounds.x_pos.upper").value,
+            },
+            "y_pos": {
+                "lower": self.get_parameter("bounds.y_pos.lower").value,
+                "upper": self.get_parameter("bounds.y_pos.upper").value,
+            },
+            "delta": {
+                "lower": self.get_parameter("bounds.delta.lower").value,
+                "upper": self.get_parameter("bounds.delta.upper").value,
+            },
+            "v": {
+                "lower": self.get_parameter("bounds.v.lower").value,
+                "upper": self.get_parameter("bounds.v.upper").value,
+            },
+            "phi": {
+                "lower": self.get_parameter("bounds.phi.lower").value,
+                "upper": self.get_parameter("bounds.phi.upper").value,
+            },
+        }
 
-        self.setpoint = None
-        self.vesc_state_stamped = None
-        self.pose_stamped = None
-        self.is_initial_guess_set = False
-
-        self.bicycle_model = BicycleModel(self.L)
         self.mpc = BicycleMPC(
-            model=self.bicycle_model,
-            t_step=self.t_step,
-            n_robust=self.n_robust,
-            n_horizon=self.n_horizon,
-            solver_max_iter=self.solver_max_iter,
-            env_size=self.env_size,
-            gains=self.gains,
+            model=BicycleModel(L=self.get_parameter("L").value),
+            t_step=self.get_parameter("t_step").value,
+            n_robust=self.get_parameter("n_robust").value,
+            n_horizon=self.get_parameter("n_horizon").value,
+            solver_max_iter=self.get_parameter("solver_max_iter").value,
+            gains=gains,
+            bounds=bounds,
         )
 
-        self.mpc_timer = self.create_timer(self.t_step, self.mpc_timer_callback)
+        self.mpc_timer = self.create_timer(
+            self.mpc.settings.t_step, self.mpc_timer_callback
+        )
 
         self.control_output_publisher = self.create_publisher(
             DockingControlOutput,
@@ -273,9 +277,9 @@ class DockingNode(Node):
 
             end_time = time.time()
             execution_time = end_time - start_time
-            if execution_time > self.t_step:
+            if execution_time > self.mpc.settings.t_step:
                 self.get_logger().error(
-                    f"Execution time exceeded time step: {execution_time} > {self.t_step}"
+                    f"Execution time exceeded time step: {execution_time} > {self.mpc.settings.t_step}"
                 )
 
     def pose_callback(self, msg: PoseStamped) -> None:
