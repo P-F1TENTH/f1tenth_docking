@@ -7,14 +7,20 @@
   <maintainer email="root@todo.todo">root</maintainer>
   <license>TODO: License declaration</license>
 
-  <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
-  <exec_depend>python-transforms3d-pip</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>tf_transformations</exec_depend>
-  <exec_depend>f1tenth_docking_interfaces</exec_depend>
-  <!-- <exec_depend>python3-do-mpc-pip</exec_depend> -->
 
+  <exec_depend>python-transforms3d-pip</exec_depend>
+  
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-do-mpc-pip</exec_depend>
+
+  <exec_depend>f1tenth_docking_interfaces</exec_depend>
+  <exec_depend>optitrack_interfaces_msgs</exec_depend>
+  <exec_depend>vesc_msgs</exec_depend>
+  
   <export>
     <build_type>ament_python</build_type>
   </export>

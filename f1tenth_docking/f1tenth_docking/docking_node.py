@@ -1,16 +1,20 @@
-import do_mpc
-import casadi as ca
-import numpy as np
+'''Node for controlling the docking procedure of the F1/10th car'''
+
 import rclpy
+import do_mpc
+import numpy as np
+import casadi as ca
 from rclpy.node import Node
 
 from tf_transformations import euler_from_quaternion
 
-from f1tenth_docking_interfaces.msg import StateVector
 from geometry_msgs.msg import PoseStamped
+from vesc_msgs.msg import VescStateStamped
+from f1tenth_docking_interfaces.msg import StateVector
 
 
 class BicycleModel(do_mpc.model.Model):
+    '''Bicycle model for the F1/10th car'''
     def __init__(self, L: float) -> None:
         super().__init__("continuous")
 
@@ -43,9 +47,16 @@ class BicycleModel(do_mpc.model.Model):
 
 
 class BicycleMPC(do_mpc.controller.MPC):
+    '''Model Predictive Controller with objective function and constraints for the F1/10th car'''
     def __init__(
-        self, gains, model, n_horizon, t_step, n_robust, env_size
-    ) -> None:  # TODO add type hints
+        self,
+        gains: dict,
+        model: do_mpc.model.Model,
+        n_horizon: int,
+        t_step: float,
+        n_robust: int,
+        env_size: dict,
+    ) -> None:
 
         self.gains = gains
         self.model = model
@@ -53,8 +64,6 @@ class BicycleMPC(do_mpc.controller.MPC):
         self.t_step = t_step
         self.n_robust = n_robust
         self.env_size = env_size
-
-        self.setpoint = np.zeros((4, 1))
 
         super().__init__(self.model)
 
@@ -119,16 +128,19 @@ class BicycleMPC(do_mpc.controller.MPC):
         self.set_tvp_fun(lambda _: self.get_tvp_template())
         self.setup()
 
-    def set_setpoint_horizon(self) -> None:
-        """Set the setpoint for the entire horizon"""
+    def choose_setpoint(
+        self, x_pos: float, y_pos: float, theta: float, delta: float
+    ) -> None:
+        '''Choose setpoint for the MPC controller'''
         tvp_template = self.get_tvp_template()
-        tvp_template["_tvp", 0 : self.n_horizon + 1, "set_x_pos"] = self.setpoint[0]
-        tvp_template["_tvp", 0 : self.n_horizon + 1, "set_y_pos"] = self.setpoint[1]
-        tvp_template["_tvp", 0 : self.n_horizon + 1, "set_theta"] = self.setpoint[2]
-        tvp_template["_tvp", 0 : self.n_horizon + 1, "set_delta"] = self.setpoint[3]
+        tvp_template["_tvp", 0 : self.n_horizon + 1, "set_x_pos"] = x_pos
+        tvp_template["_tvp", 0 : self.n_horizon + 1, "set_y_pos"] = y_pos
+        tvp_template["_tvp", 0 : self.n_horizon + 1, "set_theta"] = theta
+        tvp_template["_tvp", 0 : self.n_horizon + 1, "set_delta"] = delta
 
 
 class DockingNode(Node):
+    '''Node for controlling the docking procedure of the F1/10th car'''
 
     # Move to a config file (YAML)
     T_STEP = 0.1
@@ -152,72 +164,96 @@ class DockingNode(Node):
 
     # below stay untouched
     NODE_NAME = "docking_node"
+    N_HORIZON = 20
+    N_ROBUST = 1
 
     def __init__(self):
         super().__init__(self.NODE_NAME)
 
-        self.x = StateVector()
+        self.setpoint = None
+        self.vesc_state_stamped = None
+        self.pose_stamped = None
+        self.is_initial_guess_set = False
+
         self.bicycle_model = BicycleModel(self.L)
         self.mpc = BicycleMPC(
             gains=self.GAINS,
             model=self.bicycle_model,
-            n_horizon=20,
+            n_horizon=self.N_HORIZON,
             t_step=self.T_STEP,
-            n_robust=1,
+            n_robust=self.N_ROBUST,
             env_size=self.ENV_SIZE,
         )
 
-        # TODO: Add vecs callback and timer for MPC
-        # Remember to add set_setpoint_horizon() to the timer callback
+        self.mpc_timer = self.create_timer(self.T_STEP, self.mpc_timer_callback)
 
         self.pose_subscription = self.create_subscription(
             PoseStamped,
             "optitrack/rigid_body_0",
-            self._set_pose_callback,
+            self.pose_callback,
+            1,
+        )
+
+        self.vesc_subscription = self.create_subscription(
+            VescStateStamped,
+            "vesc/core",
+            self.vesc_callback,
             1,
         )
 
         self.setpoint_subscription = self.create_subscription(
             StateVector,
             f"{self.NODE_NAME}/setpoint",
-            self._set_setpoint_callback,
+            self.setpoint_callback,
             1,
         )
 
-        self.initial_guess_subscription = self.create_subscription(
-            StateVector,
-            f"{self.NODE_NAME}/initial_guess",
-            self._set_initial_guess_callback,
-            1,
-        )
+    def mpc_timer_callback(self) -> None:
+        '''Main controll loop'''
+        if None not in (self.pose_stamped, self.vesc_state_stamped, self.setpoint):
+            orientation_list = [
+                self.pose_stamped.pose.orientation.x,
+                self.pose_stamped.pose.orientation.y,
+                self.pose_stamped.pose.orientation.z,
+                self.pose_stamped.pose.orientation.w,
+            ]
+            x_pos = self.pose_stamped.pose.position.x
+            y_pos = self.pose_stamped.pose.position.y
+            theta = euler_from_quaternion(orientation_list)[2]
+            delta = self.vesc_state_stamped.state.servo_pose
 
-    def _set_pose_callback(self, msg: PoseStamped) -> None:
-        """Callback function to receive the currnet pose of the car"""
-        self.get_logger().info("New pose received")
+            x0 = np.array([[x_pos], [y_pos], [theta], [delta]])
 
-        orientation_list = [
-            msg.pose.orientation.x,
-            msg.pose.orientation.y,
-            msg.pose.orientation.z,
-            msg.pose.orientation.w,
-        ]
+            if self.is_initial_guess_set:
+                self.mpc.choose_setpoint(
+                    self.setpoint.x_pos,
+                    self.setpoint.y_pos,
+                    self.setpoint.theta,
+                    self.setpoint.delta,
+                )
+                u0 = self.mpc.make_step(x0)
+                self.get_logger().info(f"Control output: v={u0[0][0]}, phi={u0[1][0]}")
 
-        self.x.x_pos = msg.pose.position.x
-        self.x.y_pos = msg.pose.position.y
-        self.x.theta = euler_from_quaternion(orientation_list)[2]
+            else:
+                self.mpc.x0 = x0
+                self.mpc.set_initial_guess()
+                self.is_initial_guess_set = True
+                self.get_logger().info("Initial guess set")
 
-    def _set_setpoint_callback(self, msg: StateVector) -> None:
-        """Callback function to receive the desired setpoint of the car"""
-        self.get_logger().info("New setpoint received")
-        self.mpc.setpoint = np.array(
-            [[msg.x_pos], [msg.y_pos], [msg.theta], [msg.delta]]
-        )
+    def pose_callback(self, msg: PoseStamped) -> None:
+        '''Callback for the stamped pose message'''
+        self.pose_stamped = msg
+        self.get_logger().info("Updated pose")
 
-    def _set_initial_guess_callback(self, msg: StateVector) -> None:
-        """Callback function to receive the initial guess of the car pose"""
-        self.get_logger().info("New initial guess received")
-        self.mpc.x0 = np.array([[msg.x_pos], [msg.y_pos], [msg.theta], [msg.delta]])
-        self.mpc.set_initial_guess()
+    def vesc_callback(self, msg: VescStateStamped) -> None:
+        '''Callback for the stamped vesc state message'''
+        self.vesc_state_stamped = msg
+        self.get_logger().info("Updataed vesc state")
+
+    def setpoint_callback(self, msg: StateVector) -> None:
+        '''Callback for changing the setpoint'''
+        self.setpoint = msg
+        self.get_logger().info("Updated setpoint")
 
 
 def main(args=None):
