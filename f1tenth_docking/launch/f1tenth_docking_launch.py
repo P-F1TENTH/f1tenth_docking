@@ -19,6 +19,7 @@ def generate_launch_description():
             package=package_name,
             executable='docking_node',
             name='docking_node',
+            emulate_tty=True,
             parameters=[config]
         )
   ])
