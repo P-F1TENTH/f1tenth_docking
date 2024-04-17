@@ -9,7 +9,8 @@ find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/StateVector.msg"
+  "msg/DockingState.msg"
+  "msg/DockingControlOutput.msg"
 )
 
 ament_package()

@@ -1,4 +1,4 @@
-'''Node for controlling the docking procedure of the F1/10th car'''
+"""Node for controlling the docking procedure of the F1/10th car"""
 
 import rclpy
 import do_mpc
@@ -10,11 +10,12 @@ from tf_transformations import euler_from_quaternion
 
 from geometry_msgs.msg import PoseStamped
 from vesc_msgs.msg import VescStateStamped
-from f1tenth_docking_interfaces.msg import StateVector
+from f1tenth_docking_interfaces.msg import DockingState, DockingControlOutput
 
 
 class BicycleModel(do_mpc.model.Model):
-    '''Bicycle model for the F1/10th car'''
+    """Bicycle model for the F1/10th car"""
+
     def __init__(self, L: float) -> None:
         super().__init__("continuous")
 
@@ -47,7 +48,8 @@ class BicycleModel(do_mpc.model.Model):
 
 
 class BicycleMPC(do_mpc.controller.MPC):
-    '''Model Predictive Controller with objective function and constraints for the F1/10th car'''
+    """Model Predictive Controller with objective function and constraints for the F1/10th car"""
+
     def __init__(
         self,
         gains: dict,
@@ -131,7 +133,7 @@ class BicycleMPC(do_mpc.controller.MPC):
     def choose_setpoint(
         self, x_pos: float, y_pos: float, theta: float, delta: float
     ) -> None:
-        '''Choose setpoint for the MPC controller'''
+        """Choose setpoint for the MPC controller"""
         tvp_template = self.get_tvp_template()
         tvp_template["_tvp", 0 : self.n_horizon + 1, "set_x_pos"] = x_pos
         tvp_template["_tvp", 0 : self.n_horizon + 1, "set_y_pos"] = y_pos
@@ -140,27 +142,17 @@ class BicycleMPC(do_mpc.controller.MPC):
 
 
 class DockingNode(Node):
-    '''Node for controlling the docking procedure of the F1/10th car'''
+    """Node for controling the docking procedure of the F1/10th car"""
 
     # Move to a config file (YAML)
     T_STEP = 0.1
     ENV_SIZE = {"width": 1200, "height": 800}
     L = 30
-
     GAINS = {
         "pos": 22,
         "theta": 1,
         "delta": 0.5,
     }
-
-    # below will be received from topics
-    SETPOINT = {
-        "x_pos": 10,
-        "y_pos": 700,
-        "theta": 0,
-        "delta": 0,
-    }
-    DELTA = 0
 
     # below stay untouched
     NODE_NAME = "docking_node"
@@ -187,6 +179,19 @@ class DockingNode(Node):
 
         self.mpc_timer = self.create_timer(self.T_STEP, self.mpc_timer_callback)
 
+        self.control_output_publisher = self.create_publisher(
+            DockingControlOutput,
+            f"{self.NODE_NAME}/control_output",
+            1,
+        )
+
+        self.setpoint_subscription = self.create_subscription(
+            DockingState,
+            f"{self.NODE_NAME}/setpoint",
+            self.setpoint_callback,
+            1,
+        )
+
         self.pose_subscription = self.create_subscription(
             PoseStamped,
             "optitrack/rigid_body_0",
@@ -201,15 +206,8 @@ class DockingNode(Node):
             1,
         )
 
-        self.setpoint_subscription = self.create_subscription(
-            StateVector,
-            f"{self.NODE_NAME}/setpoint",
-            self.setpoint_callback,
-            1,
-        )
-
     def mpc_timer_callback(self) -> None:
-        '''Main controll loop'''
+        """Main control loop"""
         if None not in (self.pose_stamped, self.vesc_state_stamped, self.setpoint):
             orientation_list = [
                 self.pose_stamped.pose.orientation.x,
@@ -231,8 +229,11 @@ class DockingNode(Node):
                     self.setpoint.theta,
                     self.setpoint.delta,
                 )
-                u0 = self.mpc.make_step(x0)
-                self.get_logger().info(f"Control output: v={u0[0][0]}, phi={u0[1][0]}")
+                u0 = self.mpc.make_step(x0).reshape(-1)
+                self.control_output_publisher.publish(
+                    DockingControlOutput(v=u0[0], phi=u0[1])
+                )
+                self.get_logger().info("Control output published")
 
             else:
                 self.mpc.x0 = x0
@@ -241,26 +242,26 @@ class DockingNode(Node):
                 self.get_logger().info("Initial guess set")
 
     def pose_callback(self, msg: PoseStamped) -> None:
-        '''Callback for the stamped pose message'''
+        """Callback for the stamped pose message"""
         self.pose_stamped = msg
         self.get_logger().info("Updated pose")
 
     def vesc_callback(self, msg: VescStateStamped) -> None:
-        '''Callback for the stamped vesc state message'''
+        """Callback for the stamped vesc state message"""
         self.vesc_state_stamped = msg
         self.get_logger().info("Updataed vesc state")
 
-    def setpoint_callback(self, msg: StateVector) -> None:
-        '''Callback for changing the setpoint'''
+    def setpoint_callback(self, msg: DockingState) -> None:
+        """Callback for changing the setpoint"""
         self.setpoint = msg
         self.get_logger().info("Updated setpoint")
 
 
 def main(args=None):
     rclpy.init(args=args)
-    controller = DockingNode()
-    rclpy.spin(controller)
-    controller.destroy_node()
+    docking_node = DockingNode()
+    rclpy.spin(docking_node)
+    docking_node.destroy_node()
     rclpy.shutdown()
 
 
