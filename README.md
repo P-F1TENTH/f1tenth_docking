@@ -1,6 +1,2 @@
 # F1/10 Docking
-
-Dependencies:
-```
-pip install 'do_mpc[full]' numpy
-```
+This package is used to dock the F1/10 car to the docking station.
