@@ -1,4 +1,4 @@
-/**:
+/docking_node:
   ros__parameters:
     L: 30.0
     t_step: 0.15
