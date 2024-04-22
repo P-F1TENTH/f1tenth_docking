@@ -384,7 +384,7 @@ def main(args=None):
     """Main function for the docking action server"""
     rclpy.init(args=args)
     docking_action_server = DockingActionServer()
-    executor = MultiThreadedExecutor()
+    executor = MultiThreadedExecutor(num_threads=2)
     rclpy.spin(docking_action_server, executor=executor)
     docking_action_server.destroy()
     rclpy.shutdown()
