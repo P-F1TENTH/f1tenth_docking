@@ -17,8 +17,8 @@ def generate_launch_description():
     return launch.LaunchDescription([
         launch_ros.actions.Node(
             package=package_name,
-            executable='docking_node',
-            name='docking_node',
+            executable='docking_action_server',
+            name='docking_action_server',
             emulate_tty=True,
             parameters=[config]
         )

@@ -1,14 +1,18 @@
-/docking_node:
+/docking_action_server:
   ros__parameters:
     L: 30.0
     t_step: 0.15
+    solver_max_cpu_time: 0.03
     n_robust: 1
     n_horizon: 20
-    solver_max_iter: 5
     gains:
       pos: 22.0
       theta: 1.0
       delta: 0.5
+    accepted_absolute_errors:
+      pos: 1.0
+      theta: 0.05
+      delta: 0.05
     bounds:
       x_pos:
         lower: 0.0

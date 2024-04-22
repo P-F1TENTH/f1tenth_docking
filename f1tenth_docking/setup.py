@@ -23,7 +23,7 @@ setup(
     license="TODO: License declaration",
     entry_points={
         "console_scripts": [
-            "docking_node = f1tenth_docking.docking_node:main",
+            "docking_action_server = f1tenth_docking.docking_action_server:main",
         ],
     },
 )
