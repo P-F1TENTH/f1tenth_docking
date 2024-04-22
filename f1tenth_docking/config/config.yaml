@@ -1,3 +1,10 @@
+# x_pos - unit
+# y_pos - unit
+# delta - radians
+# theta - radians
+# v - unit / sec
+# phi - radians / sec
+
 /docking_action_server:
   ros__parameters:
     L: 30.0

@@ -82,7 +82,6 @@ class BicycleMPC(do_mpc.controller.MPC):
             },
         )
         
-        # TODO: Convert bounds to per sec based on t_step
         self.bounds["lower", "_x", "x_pos"] = bounds["x_pos"]["lower"]
         self.bounds["upper", "_x", "y_pos"] = bounds["x_pos"]["upper"]
 
@@ -92,11 +91,11 @@ class BicycleMPC(do_mpc.controller.MPC):
         self.bounds["lower", "_x", "delta"] = bounds["delta"]["lower"]
         self.bounds["upper", "_x", "delta"] = bounds["delta"]["upper"]
 
-        self.bounds["lower", "_u", "v"] = bounds["v"]["lower"]
-        self.bounds["upper", "_u", "v"] = bounds["v"]["upper"]
+        self.bounds["lower", "_u", "v"] = bounds["v"]["lower"] * t_step
+        self.bounds["upper", "_u", "v"] = bounds["v"]["upper"] * t_step
 
-        self.bounds["lower", "_u", "phi"] = bounds["phi"]["lower"]
-        self.bounds["upper", "_u", "phi"] = bounds["phi"]["upper"]
+        self.bounds["lower", "_u", "phi"] = bounds["phi"]["lower"] * t_step
+        self.bounds["upper", "_u", "phi"] = bounds["phi"]["upper"] * t_step
 
         norm = lambda x, min, max: (x - min) / (max - min)
         lterm = (
