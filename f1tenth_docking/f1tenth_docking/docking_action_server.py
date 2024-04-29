@@ -17,8 +17,10 @@ from tf_transformations import euler_from_quaternion
 
 from geometry_msgs.msg import PoseStamped
 from vesc_msgs.msg import VescStateStamped
+from control_interfaces.msg import Control
+
 from f1tenth_docking_interfaces.action import Docking
-from f1tenth_docking_interfaces.msg import DockingState, DockingControlOutput
+from f1tenth_docking_interfaces.msg import DockingState
 
 
 class BicycleModel(do_mpc.model.Model):
@@ -61,7 +63,6 @@ class BicycleMPC(do_mpc.controller.MPC):
         model: BicycleModel,
         t_step: float,
         solver_max_cpu_time: float,
-        n_robust: int,
         n_horizon: int,
         gains: dict,
         bounds: dict,
@@ -72,7 +73,6 @@ class BicycleMPC(do_mpc.controller.MPC):
         self.set_param(
             n_horizon=n_horizon,
             t_step=t_step,
-            n_robust=n_robust,
             store_full_solution=False,
             nlpsol_opts={
                 "ipopt.max_cpu_time": solver_max_cpu_time,
@@ -81,7 +81,7 @@ class BicycleMPC(do_mpc.controller.MPC):
                 "print_time": 0,
             },
         )
-        
+
         self.bounds["lower", "_x", "x_pos"] = bounds["x_pos"]["lower"]
         self.bounds["upper", "_x", "y_pos"] = bounds["x_pos"]["upper"]
 
@@ -158,7 +158,6 @@ class DockingActionServer(Node):
                 ("L", rclpy.Parameter.Type.DOUBLE),
                 ("t_step", rclpy.Parameter.Type.DOUBLE),
                 ("solver_max_cpu_time", rclpy.Parameter.Type.DOUBLE),
-                ("n_robust", rclpy.Parameter.Type.INTEGER),
                 ("n_horizon", rclpy.Parameter.Type.INTEGER),
                 ("gains.pos", rclpy.Parameter.Type.DOUBLE),
                 ("gains.theta", rclpy.Parameter.Type.DOUBLE),
@@ -218,15 +217,14 @@ class DockingActionServer(Node):
             model=BicycleModel(L=self.get_parameter("L").value),
             t_step=self.get_parameter("t_step").value,
             solver_max_cpu_time=self.get_parameter("solver_max_cpu_time").value,
-            n_robust=self.get_parameter("n_robust").value,
             n_horizon=self.get_parameter("n_horizon").value,
             gains=gains,
             bounds=bounds,
         )
 
         self.control_output_publisher = self.create_publisher(
-            DockingControlOutput,
-            f"{self.NAME}/control_output",
+            Control,
+            "commands/ctrl",
             1,
         )
 
@@ -305,15 +303,20 @@ class DockingActionServer(Node):
             docking_state = self.get_docking_state()
 
             u0 = self.mpc.make_step(np.vstack(docking_state)).flatten()
+
             error = setpoint - docking_state
 
             feedback_msg.error = DockingState(
                 x_pos=error[0], y_pos=error[1], theta=error[2], delta=error[3]
             )
-            docking_control_output = DockingControlOutput(v=u0[0], phi=u0[1])
+            control = Control(
+                set_speed=u0[0],
+                # obtain the first predicted delta state after applaying the control
+                steering_angle=float(self.mpc.opt_x_num["_x", 1, 0, -1, "delta"]),
+            )
 
             goal_handle.publish_feedback(feedback_msg)
-            self.control_output_publisher.publish(docking_control_output)
+            self.control_output_publisher.publish(control)
 
             self.get_logger().info("Control output published")
 

@@ -10,7 +10,6 @@
     L: 30.0
     t_step: 0.15
     solver_max_cpu_time: 0.03
-    n_robust: 1
     n_horizon: 20
     gains:
       pos: 22.0
