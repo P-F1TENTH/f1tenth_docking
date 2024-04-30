@@ -313,6 +313,7 @@ class DockingActionServer(Node):
                 set_speed=u0[0],
                 # obtain the first predicted delta state after applaying the control
                 steering_angle=float(self.mpc.opt_x_num["_x", 1, 0, -1, "delta"]),
+                control_mode=Control.SPEED_MODE,
             )
 
             goal_handle.publish_feedback(feedback_msg)
