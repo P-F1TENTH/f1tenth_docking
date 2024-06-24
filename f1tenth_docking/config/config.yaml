@@ -7,31 +7,31 @@
 
 /docking_action_server:
   ros__parameters:
-    L: 30.0
+    L: 0.3
     t_step: 0.15
     solver_max_cpu_time: 0.03
     n_horizon: 20
     gains:
       pos: 22.0
-      theta: 1.0
-      delta: 0.5
+      theta: 0.0
+      delta: 0.0
     accepted_absolute_errors:
-      pos: 1.0
-      theta: 0.05
-      delta: 0.05
+      pos: 0.1
+      theta: 0.1
+      delta: 0.1
     bounds:
       x_pos:
         lower: 0.0
-        upper: 1200.0
+        upper: 2.2
       y_pos:
         lower: 0.0
-        upper: 1200.0
+        upper: 4.0 
       delta:
         lower: -0.785
         upper: 0.785
       v:
-        lower: -120.0
-        upper: 120.0
-      phi:
         lower: -2.0
         upper: 2.0
+      phi:
+        lower: -10.0
+        upper: 10.0
