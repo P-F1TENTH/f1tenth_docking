@@ -89,8 +89,8 @@ class BicycleMPC(do_mpc.controller.MPC):
         self.bounds["lower", "_x", "y_pos"] = bounds["y_pos"]["lower"]
         self.bounds["upper", "_x", "y_pos"] = bounds["y_pos"]["upper"]
 
-        self.bounds["lower", "_x", "delta"] = bounds["delta"]["lower"]
-        self.bounds["upper", "_x", "delta"] = bounds["delta"]["upper"]
+        self.bounds["lower", "_x", "delta"] = bounds["delta"]["radians"]
+        self.bounds["upper", "_x", "delta"] = bounds["delta"]["radians"]
 
         self.bounds["lower", "_u", "v"] = bounds["v"]["lower"] * t_step
         self.bounds["upper", "_u", "v"] = bounds["v"]["upper"] * t_step
@@ -167,8 +167,8 @@ class DockingActionServer(Node):
                 ("bounds.x_pos.upper", rclpy.Parameter.Type.DOUBLE),
                 ("bounds.y_pos.lower", rclpy.Parameter.Type.DOUBLE),
                 ("bounds.y_pos.upper", rclpy.Parameter.Type.DOUBLE),
-                ("bounds.delta.lower", rclpy.Parameter.Type.DOUBLE),
-                ("bounds.delta.upper", rclpy.Parameter.Type.DOUBLE),
+                ("bounds.delta.normalized", rclpy.Parameter.Type.DOUBLE),
+                ("bounds.delta.radians", rclpy.Parameter.Type.DOUBLE),
                 ("bounds.v.lower", rclpy.Parameter.Type.DOUBLE),
                 ("bounds.v.upper", rclpy.Parameter.Type.DOUBLE),
                 ("bounds.phi.lower", rclpy.Parameter.Type.DOUBLE),
@@ -179,13 +179,13 @@ class DockingActionServer(Node):
             ],
         )
 
-        gains = {
+        self.gains = {
             "pos": self.get_parameter("gains.pos").value,
             "theta": self.get_parameter("gains.theta").value,
             "delta": self.get_parameter("gains.delta").value,
         }
 
-        bounds = {
+        self.bounds = {
             "x_pos": {
                 "lower": self.get_parameter("bounds.x_pos.lower").value,
                 "upper": self.get_parameter("bounds.x_pos.upper").value,
@@ -195,8 +195,8 @@ class DockingActionServer(Node):
                 "upper": self.get_parameter("bounds.y_pos.upper").value,
             },
             "delta": {
-                "lower": self.get_parameter("bounds.delta.lower").value,
-                "upper": self.get_parameter("bounds.delta.upper").value,
+                "normalized": self.get_parameter("bounds.delta.normalized").value,
+                "radians": self.get_parameter("bounds.delta.radians").value,
             },
             "v": {
                 "lower": self.get_parameter("bounds.v.lower").value,
@@ -219,8 +219,8 @@ class DockingActionServer(Node):
             t_step=self.get_parameter("t_step").value,
             solver_max_cpu_time=self.get_parameter("solver_max_cpu_time").value,
             n_horizon=self.get_parameter("n_horizon").value,
-            gains=gains,
-            bounds=bounds,
+            gains=self.gains,
+            bounds=self.bounds,
         )
 
         self.control_output_publisher = self.create_publisher(
@@ -313,7 +313,10 @@ class DockingActionServer(Node):
             control = Control(
                 set_speed=u0[0],
                 # obtain the first predicted delta state after applaying the control
-                steering_angle=float(self.mpc.opt_x_num["_x", 1, 0, -1, "delta"]),
+                steering_angle=float(self.mpc.opt_x_num["_x", 1, 0, -1, "delta"])
+                * (
+                    self.bounds["delta"]["normalized"] / self.bounds["delta"]["radians"]
+                ),
                 control_mode=Control.SPEED_MODE,
             )
 
@@ -380,7 +383,9 @@ class DockingActionServer(Node):
         x_pos = self.pose_stamped.pose.position.x
         y_pos = self.pose_stamped.pose.position.y
         theta = euler_from_quaternion(orientation_list)[2]
-        delta = self.vesc_state_stamped.state.servo_pose
+        delta = self.vesc_state_stamped.state.servo_pose * (
+            self.bounds["delta"]["radians"] / self.bounds["delta"]["normalized"]
+        )
         return np.array([x_pos, y_pos, theta, delta])
 
 

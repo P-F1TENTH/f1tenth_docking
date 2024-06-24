@@ -19,9 +19,9 @@
       y_pos: # meters
         lower: 0.0
         upper: 4.0 
-      delta: # radians
-        lower: -0.5
-        upper: 0.5
+      delta: 
+        normalized: 0.5
+        radians: 0.785
       v: # meters / sec
         lower: -2.0
         upper: 2.0
