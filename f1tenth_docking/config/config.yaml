@@ -1,13 +1,6 @@
-# x_pos - unit
-# y_pos - unit
-# delta - radians
-# theta - radians
-# v - unit / sec
-# phi - radians / sec
-
 /docking_action_server:
   ros__parameters:
-    L: 0.3
+    L: 0.3 # meters
     t_step: 0.15
     solver_max_cpu_time: 0.03
     n_horizon: 20
@@ -20,18 +13,18 @@
       theta: 0.1
       delta: 0.1
     bounds:
-      x_pos:
+      x_pos: # meters
         lower: 0.0
         upper: 2.2
-      y_pos:
+      y_pos: # meters
         lower: 0.0
         upper: 4.0 
-      delta:
+      delta: # radians
         lower: -0.5
         upper: 0.5
-      v:
+      v: # meters / sec
         lower: -2.0
         upper: 2.0
-      phi:
+      phi: # radians / sec
         lower: -10.0
         upper: 10.0
