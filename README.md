@@ -10,7 +10,7 @@ nvim f1tenth_docking/config/config.yaml
 
 Start the docking action server:
 ```bash
-ros2 launch f1tenth_docking f1tenth_docking_launch.py
+ros2 launch f1tenth_docking f1tenth_docking.launch.py
 ```
 
 Mock the vesc servo pose:
