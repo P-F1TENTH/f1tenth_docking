@@ -12,6 +12,7 @@ from rclpy.action import ActionServer, GoalResponse, CancelResponse
 from rclpy.action.server import ServerGoalHandle
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
+from rclpy.qos import qos_profile_sensor_data
 
 from tf_transformations import euler_from_quaternion
 
@@ -42,8 +43,8 @@ class BicycleModel(do_mpc.model.Model):
         self.set_variable(var_type="_tvp", var_name="set_theta")
         self.set_variable(var_type="_tvp", var_name="set_delta")
 
-        d_x_pos = self.u["v"] * ca.cos(self.x["theta"])
-        d_y_pos = self.u["v"] * ca.sin(self.x["theta"])
+        d_x_pos = self.u["v"] * ca.sin(self.x["theta"])
+        d_y_pos = self.u["v"] * ca.cos(self.x["theta"])
         d_theta = self.u["v"] * ca.tan(self.x["delta"]) / L
         d_delta = self.u["phi"]
 
@@ -239,7 +240,7 @@ class DockingActionServer(Node):
             VescStateStamped,
             "vesc/core",
             self.vesc_callback,
-            1,
+            qos_profile_sensor_data,
         )
 
         self.control_loop_rate = self.create_rate(1 / self.mpc.settings.t_step)
