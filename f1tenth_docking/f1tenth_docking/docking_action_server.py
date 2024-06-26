@@ -226,7 +226,7 @@ class DockingActionServer(Node):
 
         self.control_publisher = self.create_publisher(
             Control,
-            "mpc/control",
+            "commands/ctrl",
             1,
         )
 

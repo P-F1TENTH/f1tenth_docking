@@ -6,8 +6,8 @@
     n_horizon: 20
     gains:
       pos: 1.0
-      theta: 1.0
-      delta: 1.0
+      theta: 0.0
+      delta: 0.0
     accepted_absolute_errors:
       pos: 0.1
       theta: 0.1
@@ -21,7 +21,7 @@
         upper: 4.0 
       delta: 
         normalized: 0.5
-        radians: 0.785
+        radians: 0.4
       v: # meters / sec
         lower: -2.0
         upper: 2.0
