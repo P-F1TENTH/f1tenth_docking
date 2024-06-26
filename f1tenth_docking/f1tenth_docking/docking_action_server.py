@@ -16,6 +16,7 @@ from rclpy.qos import qos_profile_sensor_data
 
 from tf_transformations import euler_from_quaternion
 
+from std_msgs.msg import Header
 from geometry_msgs.msg import PoseStamped, PoseArray, Pose, Point, Quaternion
 from vesc_msgs.msg import VescStateStamped
 from control_interfaces.msg import Control
@@ -325,6 +326,10 @@ class DockingActionServer(Node):
                 control_mode=Control.SPEED_MODE,
             )
             predicted_states = PoseArray(
+                header=Header(
+                    stamp=self.get_clock().now().to_msg(),
+                    frame_id="predicted_states",
+                ),
                 poses=[
                     Pose(
                         position=Point(
@@ -343,7 +348,7 @@ class DockingActionServer(Node):
                         ),
                     )
                     for i in range(self.mpc.settings.n_horizon + 1)
-                ]
+                ],
             )
 
             goal_handle.publish_feedback(feedback_msg)
