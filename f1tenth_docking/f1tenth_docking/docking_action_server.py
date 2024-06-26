@@ -89,7 +89,7 @@ class BicycleMPC(do_mpc.controller.MPC):
         self.bounds["lower", "_x", "y_pos"] = bounds["y_pos"]["lower"]
         self.bounds["upper", "_x", "y_pos"] = bounds["y_pos"]["upper"]
 
-        self.bounds["lower", "_x", "delta"] = bounds["delta"]["radians"]
+        self.bounds["lower", "_x", "delta"] = -bounds["delta"]["radians"]
         self.bounds["upper", "_x", "delta"] = bounds["delta"]["radians"]
 
         self.bounds["lower", "_u", "v"] = bounds["v"]["lower"] * t_step
