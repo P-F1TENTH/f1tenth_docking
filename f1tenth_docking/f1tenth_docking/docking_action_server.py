@@ -16,7 +16,7 @@ from rclpy.qos import qos_profile_sensor_data
 
 from tf_transformations import euler_from_quaternion
 
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, PoseArray, Pose, Point, Quaternion
 from vesc_msgs.msg import VescStateStamped
 from control_interfaces.msg import Control
 
@@ -223,9 +223,15 @@ class DockingActionServer(Node):
             bounds=self.bounds,
         )
 
-        self.control_output_publisher = self.create_publisher(
+        self.control_publisher = self.create_publisher(
             Control,
-            "commands/ctrl",
+            "mpc/control",
+            1,
+        )
+
+        self.predicted_states_publisher = self.create_publisher(
+            PoseArray,
+            "mpc/predicted_states",
             1,
         )
 
@@ -306,7 +312,6 @@ class DockingActionServer(Node):
             u0 = self.mpc.make_step(np.vstack(docking_state)).flatten()
 
             error = setpoint - docking_state
-
             feedback_msg.error = DockingState(
                 x_pos=error[0], y_pos=error[1], theta=error[2], delta=error[3]
             )
@@ -319,9 +324,31 @@ class DockingActionServer(Node):
                 ),
                 control_mode=Control.SPEED_MODE,
             )
+            predicted_states = PoseArray(
+                poses=[
+                    Pose(
+                        position=Point(
+                            x=float(self.mpc.opt_x_num["_x", i, 0, -1, "x_pos"]),
+                            y=float(self.mpc.opt_x_num["_x", i, 0, -1, "y_pos"]),
+                        ),
+                        orientation=Quaternion(
+                            x=0.0,
+                            y=0.0,
+                            z=np.sin(
+                                float(self.mpc.opt_x_num["_x", i, 0, -1, "theta"])
+                            ),
+                            w=np.cos(
+                                float(self.mpc.opt_x_num["_x", i, 0, -1, "theta"])
+                            ),
+                        ),
+                    )
+                    for i in range(self.mpc.settings.n_horizon + 1)
+                ]
+            )
 
             goal_handle.publish_feedback(feedback_msg)
-            self.control_output_publisher.publish(control)
+            self.control_publisher.publish(control)
+            self.predicted_states_publisher.publish(predicted_states)
 
             self.get_logger().info("Control output published")
 
