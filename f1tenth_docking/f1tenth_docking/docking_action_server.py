@@ -44,8 +44,8 @@ class BicycleModel(do_mpc.model.Model):
         self.set_variable(var_type="_tvp", var_name="set_theta")
         self.set_variable(var_type="_tvp", var_name="set_delta")
 
-        d_x_pos = self.u["v"] * ca.sin(self.x["theta"])
-        d_y_pos = self.u["v"] * ca.cos(self.x["theta"])
+        d_x_pos = self.u["v"] * ca.cos(self.x["theta"])
+        d_y_pos = self.u["v"] * ca.sin(self.x["theta"])
         d_theta = self.u["v"] * ca.tan(self.x["delta"]) / L
         d_delta = self.u["phi"]
 
@@ -319,7 +319,7 @@ class DockingActionServer(Node):
             control = Control(
                 set_speed=u0[0],
                 # obtain the first predicted delta state after applaying the control
-                steering_angle=float(self.mpc.opt_x_num["_x", 1, 0, -1, "delta"])
+                steering_angle=-float(self.mpc.opt_x_num["_x", 1, 0, -1, "delta"])
                 * (
                     self.bounds["delta"]["normalized"] / self.bounds["delta"]["radians"]
                 ),
@@ -415,7 +415,7 @@ class DockingActionServer(Node):
         x_pos = self.pose_stamped.pose.position.x
         y_pos = self.pose_stamped.pose.position.y
         theta = euler_from_quaternion(orientation_list)[2]
-        delta = self.vesc_state_stamped.state.servo_pose * (
+        delta = - self.vesc_state_stamped.state.servo_pose * (
             self.bounds["delta"]["radians"] / self.bounds["delta"]["normalized"]
         )
         return np.array([x_pos, y_pos, theta, delta])
