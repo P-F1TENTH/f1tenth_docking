@@ -5,9 +5,9 @@
     solver_max_cpu_time: 0.03
     n_horizon: 20
     gains:
-      pos: 2.0
+      pos: 22.0
       theta: 1.0
-      delta: 0.1
+      delta: 1.0
     accepted_absolute_errors:
       pos: 0.1
       theta: 0.1

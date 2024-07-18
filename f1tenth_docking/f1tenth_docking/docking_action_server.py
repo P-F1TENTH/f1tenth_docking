@@ -14,7 +14,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.qos import qos_profile_sensor_data
 
-from tf_transformations import euler_from_quaternion
+from tf_transformations import euler_from_quaternion, quaternion_from_euler
 
 from std_msgs.msg import Header
 from geometry_msgs.msg import PoseStamped, PoseArray, Pose, Point, Quaternion
@@ -317,6 +317,7 @@ class DockingActionServer(Node):
             feedback_msg.error = DockingState(
                 x_pos=error[0], y_pos=error[1], theta=error[2], delta=error[3]
             )
+
             control = Control(
                 set_speed=u0[0],
                 # obtain the first predicted delta state after applaying the control
@@ -326,6 +327,7 @@ class DockingActionServer(Node):
                 ),
                 control_mode=Control.SPEED_MODE,
             )
+
             predicted_states = PoseArray(
                 header=Header(
                     stamp=self.get_clock().now().to_msg(),
@@ -338,14 +340,18 @@ class DockingActionServer(Node):
                             y=float(self.mpc.opt_x_num["_x", i, 0, -1, "y_pos"]),
                         ),
                         orientation=Quaternion(
-                            x=0.0,
-                            y=0.0,
-                            z=np.sin(
-                                float(self.mpc.opt_x_num["_x", i, 0, -1, "theta"])
-                            ),
-                            w=np.cos(
-                                float(self.mpc.opt_x_num["_x", i, 0, -1, "theta"])
-                            ),
+                            **dict(
+                                zip(
+                                    ["x", "y", "z", "w"],
+                                    quaternion_from_euler(
+                                        0,
+                                        0,
+                                        float(
+                                            self.mpc.opt_x_num["_x", i, 0, -1, "theta"]
+                                        ),
+                                    ),
+                                )
+                            )
                         ),
                     )
                     for i in range(self.mpc.settings.n_horizon + 1)
@@ -416,7 +422,7 @@ class DockingActionServer(Node):
         x_pos = self.pose_stamped.pose.position.x
         y_pos = self.pose_stamped.pose.position.y
         theta = euler_from_quaternion(orientation_list)[2]
-        delta = - self.vesc_state_stamped.state.servo_pose * (
+        delta = -self.vesc_state_stamped.state.servo_pose * (
             self.bounds["delta"]["radians"] / self.bounds["delta"]["normalized"]
         )
         return np.array([x_pos, y_pos, theta, delta])
