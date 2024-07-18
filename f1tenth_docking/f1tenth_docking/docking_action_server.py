@@ -126,18 +126,18 @@ class BicycleMPC(do_mpc.controller.MPC):
         self.set_objective(mterm=mterm, lterm=lterm)
         self.set_rterm(v=1e-2, phi=1e-2)
 
-        self.set_tvp_fun(lambda _: self.get_tvp_template())
+        self.tvp_template = self.get_tvp_template()
+        self.set_tvp_fun(lambda _: self.tvp_template)
         self.setup()
 
     def choose_setpoint(
         self, x_pos: float, y_pos: float, theta: float, delta: float
     ) -> None:
         """Choose setpoint for the MPC controller"""
-        tvp_template = self.get_tvp_template()
-        tvp_template["_tvp", 0 : self.settings.n_horizon + 1, "set_x_pos"] = x_pos
-        tvp_template["_tvp", 0 : self.settings.n_horizon + 1, "set_y_pos"] = y_pos
-        tvp_template["_tvp", 0 : self.settings.n_horizon + 1, "set_theta"] = theta
-        tvp_template["_tvp", 0 : self.settings.n_horizon + 1, "set_delta"] = delta
+        self.tvp_template["_tvp", 0 : self.settings.n_horizon + 1, "set_x_pos"] = x_pos
+        self.tvp_template["_tvp", 0 : self.settings.n_horizon + 1, "set_y_pos"] = y_pos
+        self.tvp_template["_tvp", 0 : self.settings.n_horizon + 1, "set_theta"] = theta
+        self.tvp_template["_tvp", 0 : self.settings.n_horizon + 1, "set_delta"] = delta
 
 
 class DockingActionServer(Node):
@@ -308,6 +308,7 @@ class DockingActionServer(Node):
                 return Docking.Result()
 
             self.mpc.choose_setpoint(*setpoint)
+
             docking_state = self.get_docking_state()
 
             u0 = self.mpc.make_step(np.vstack(docking_state)).flatten()
