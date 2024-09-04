@@ -37,11 +37,11 @@ class BicycleMPC(do_mpc.controller.MPC):
         self.bounds["lower", "_x", "delta"] = -bounds["delta"]["radians"]
         self.bounds["upper", "_x", "delta"] = bounds["delta"]["radians"]
 
-        self.bounds["lower", "_u", "v"] = bounds["v"]["lower"] * t_step
-        self.bounds["upper", "_u", "v"] = bounds["v"]["upper"] * t_step
+        self.bounds["lower", "_u", "v"] = bounds["v"]["lower"]
+        self.bounds["upper", "_u", "v"] = bounds["v"]["upper"]
 
-        self.bounds["lower", "_u", "phi"] = bounds["phi"]["lower"] * t_step
-        self.bounds["upper", "_u", "phi"] = bounds["phi"]["upper"] * t_step
+        self.bounds["lower", "_u", "phi"] = bounds["phi"]["lower"]
+        self.bounds["upper", "_u", "phi"] = bounds["phi"]["upper"]
 
         norm = lambda x, min, max: (x - min) / (max - min)
         lterm = (
