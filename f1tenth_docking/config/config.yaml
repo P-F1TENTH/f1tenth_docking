@@ -9,7 +9,7 @@
       theta: 1.0
       delta: 1.0
     accepted_absolute_errors:
-      pos: 0.1
+      pos: 0.05
       theta: 0.1
       delta: 0.1
     bounds:
@@ -23,8 +23,8 @@
         normalized: 0.5
         radians: 0.4
       v: # meters / sec
-        lower: -2.0
-        upper: 2.0
+        lower: -0.2
+        upper: 0.2
       phi: # radians / sec
         lower: -10.0
         upper: 10.0

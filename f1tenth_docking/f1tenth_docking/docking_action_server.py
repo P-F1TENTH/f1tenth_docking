@@ -112,7 +112,7 @@ class DockingActionServer(Node):
 
         self.control_publisher = self.create_publisher(
             Control,
-            "commands/ctrl",
+            "mpc/control",
             1,
         )
 
@@ -263,6 +263,12 @@ class DockingActionServer(Node):
         error = setpoint - self.get_docking_state()
         result_msg.steady_state_error = DockingState(
             x_pos=error[0], y_pos=error[1], theta=error[2], delta=error[3]
+        )
+
+        self.control_publisher.publish(Control(
+            set_brake=10.0,
+            steering_angle=0.0,
+            control_mode=Control.BRAKE_MODE)
         )
 
         goal_handle.succeed()
