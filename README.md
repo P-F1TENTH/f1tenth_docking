@@ -1,4 +1,4 @@
-# F1/10 Docking
+# F1/10 Docking using MPC
 This ROS2 package enables the docking of an F1/10 car to a docking station using a Model Predictive Control (MPC) algorithm. A custom objective function is implemented, with configurable constraints specified in the config.yaml file. The vehicle kinematics are modeled using a bicycle model.
 
 <div align="center">
